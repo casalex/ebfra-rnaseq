@@ -1,0 +1,28 @@
+aligner  :  STAR_chimera
+
+indel_ref  :  /local/projects-t3tmp/EBFRA/acasella/ref/mus_musculus/indels/mgp.v5.merged.indels.dbSNP142.normed.vcf.gz
+
+snp_ref  :  /local/projects-t3tmp/EBFRA/acasella/ref/mus_musculus/snps/mgp.v5.merged.snps_all.dbSNP142.vcf.gz
+
+annotation_gtf  :  /local/projects-t3tmp/EBFRA/acasella/ref/mus_musculus/ensembl_annotation/Mus_musculus.GRCm38.78.renamed.gtf
+
+sjdbOverhang  :  149
+
+chimSegmentMin  :  20
+
+index_dir  : 
+    mm10  :
+        - /local/projects-t3tmp/EBFRA/acasella/ref/mus_musculus/star_indices/
+
+references  : 
+    mm10_transcripts  :
+        - /local/projects-t3tmp/EBFRA/acasella/ref/mus_musculus/transcripts/Mus_musculus.GRCm38.cdna.all.fa
+    
+samples  : 
+    86_RNA: 
+        - 86_RNA
+
+units  : 
+    86_RNA  : 
+        - /local/projects/EBFRA/86_RNA/ILLUMINA_DATA/EBFRA_20160617_K00134_IL100072500_S27_L005_R1_trimmed.fastq.gz
+        - /local/projects/EBFRA/86_RNA/ILLUMINA_DATA/EBFRA_20160617_K00134_IL100072500_S27_L005_R2_trimmed.fastq.gz

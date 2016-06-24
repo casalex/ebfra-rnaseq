@@ -1,0 +1,20 @@
+--- 
+__default__  :
+    project  :  jdhotopp-lab  
+    stderr  :  ./log
+    stdout  :  ./log
+    mem_free  :  4G
+    threads  :  1
+star_mapping  :
+    mem_free  : 32G
+    threads  :  32
+star_mapping_pass2_index  :
+    mem_free  : 32G
+    threads  :  32
+star_mapping_pass2_run  :
+    mem_free  : 32G
+    threads  :  32
+mark_dups  :
+    mem_free  :  5G
+realign  :
+    mem_free  :  10G

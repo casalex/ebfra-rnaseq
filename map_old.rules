@@ -1,0 +1,54 @@
+rule index_bam:
+	input: 
+		"mapping/{reference}/{aligner}/{unit}/pass_2_output/Aligned.sortedByCoord.out.bam"
+	output: 
+		"mapping/{reference}/{aligner}/{unit}/pass_2_output/Aligned.sortedByCoord.out.bam.bai"
+	shell: 
+		"/usr/local/bin/samtools index {input}"
+
+rule star_mapping_pass2_run:
+	input:
+		dummy = "mapping/{reference}/{aligner}/{unit}/pass_2_index/SAindex",
+		fq = lambda wildcards: config["units"][wildcards.unit]
+	output:
+		"mapping/{reference}/{aligner}/{unit}/pass_2_output/Aligned.sortedByCoord.out.bam"
+	threads: 32
+	params: 
+		pass2_index_path = "mapping/{reference}/{aligner}/{unit}/pass_2_index/",
+		pass2_run_path = "mapping/{reference}/{aligner}/{unit}/pass_2_output/"
+	shell:"""
+	mkdir -p {params.pass2_run_path}
+	/home/alex.casella/software/STAR --genomeDir {params.pass2_index_path} --runThreadN {threads} --readFilesIn {input.fq} --readFilesCommand zcat --chimSegmentMin 20 --outFileNamePrefix {params.pass2_run_path} --outSAMtype BAM SortedByCoordinate
+	"""
+
+rule star_mapping_pass2_index:
+	input:
+		reference = lambda wildcards: config["references"][wildcards.reference],
+		sjtab = "mapping/{reference}/{aligner}/{unit}/SJ.out.tab"
+	output:
+		"mapping/{reference}/{aligner}/{unit}/pass_2_index/SAindex"
+	threads: 32
+	params: 
+		path = "mapping/{reference}/{aligner}/{unit}/pass_2_index/"
+	shell:"""
+	mkdir -p {params.path}
+	/home/alex.casella/software/STAR --runMode genomeGenerate --genomeDir {params.path} --genomeFastaFiles {input.reference} --sjdbFileChrStartEnd {input.sjtab} --sjdbOverhang 149 --runThreadN {threads}
+	"""
+    		
+rule star_mapping:
+	input:
+		index_dir = lambda wildcards: config["index_dir"][wildcards.reference],
+		fq = lambda wildcards: config["units"][wildcards.unit]
+	output:
+		bam = "mapping/{reference}/{aligner}/{unit}/Aligned.sortedByCoord.out.bam",
+		sjtab = "mapping/{reference}/{aligner}/{unit}/SJ.out.tab"
+	params:
+		path = "mapping/{reference}/{aligner}/{unit}/"
+	log:
+		"mapping/{reference}/{aligner}/{unit}/log/{unit}_star_mapping.log"
+	threads: 32
+	shell:"""
+	mkdir -p {params.path}
+	/home/alex.casella/software/STAR --genomeDir {input.index_dir} --runThreadN {threads} --readFilesIn {input.fq} --readFilesCommand zcat --chimSegmentMin 20 --outFileNamePrefix {params.path} --outSAMtype BAM SortedByCoordinate
+	"""
+	

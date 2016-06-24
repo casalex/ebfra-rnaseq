@@ -1,0 +1,119 @@
+rule index:
+    input: "processing/{reference}/{aligner}/{unit}/{unit}_preprocessed.bam"
+    output: "processing/{reference}/{aligner}/{unit}/{unit}_preprocessed.bam.bai"
+    log: "processing/{reference}/{aligner}/{unit}/samtools_log/{unit}_preprocessed.bam"
+    shell: """
+    samtools index {input}
+    """
+    
+rule exclude_recal:	
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		bam="processing/{reference}/{aligner}/{unit}/{unit}_realigned_splitntrim_marked_dups_sorted.bam",
+		bqsr="processing/{reference}/{aligner}/{unit}/QC/{unit}_recal_data.table"
+	output:
+		"processing/{reference}/{aligner}/{unit}/{unit}_preprocessed.bam"
+	log:
+		"processing/{reference}/{aligner}/{unit}/gatk_logs/{unit}_exclude_recal.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T PrintReads -R {input.fa} -I {input.bam} -BQSR {input.bqsr} -o {output} &>{log}
+	"""    
+    
+rule analyze_covar:
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		before="processing/{reference}/{aligner}/{unit}/QC/{unit}_recal_data.table",
+		after="processing/{reference}/{aligner}/{unit}/QC/{unit}_post_recal_data.table"
+	output:
+		"processing/{reference}/{aligner}/{unit}/QC/{unit}_recalibration_plots.pdf"
+	log:
+		"processing/{reference}/{aligner}/{unit}/QC/gatk_logs/{unit}_analyze_covar.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T AnalyzeCovariates -R {input.fa} -before {input.before} -after {input.after} -plots {output} &>{log}
+	"""    
+
+rule base_recal_2:
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		bam="processing/{reference}/{aligner}/{unit}/{unit}_realigned_splitntrim_marked_dups_sorted.bam",
+		recal="processing/{reference}/{aligner}/{unit}/QC/{unit}_recal_data.table"
+	output:
+		"processing/{reference}/{aligner}/{unit}/QC/{unit}_post_recal_data.table"
+	log:
+		"processing/{reference}/{aligner}/{unit}/QC/gatk_logs/{unit}_base_recal_2.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T BaseRecalibrator -R {input.fa} -I {input.bam} -knownSites {config[snp_ref]} -knownSites {config[indel_ref]} -BQSR {input.recal} -o {output} &>{log}
+	"""
+
+rule base_recal_1:
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		bam="processing/{reference}/{aligner}/{unit}/{unit}_realigned_splitntrim_marked_dups_sorted.bam"		
+	output:
+		"processing/{reference}/{aligner}/{unit}/QC/{unit}_recal_data.table"
+	log:
+		"processing/{reference}/{aligner}/{unit}/QC/gatk_logs/{unit}_base_recal_1.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T BaseRecalibrator -R {input.fa} -I {input.bam} -knownSites {config[snp_ref]} -knownSites {config[indel_ref]} -o {output} &>{log}
+	"""   
+	 
+rule realign:		
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		intervals="processing/{reference}/{aligner}/{unit}/QC/{unit}_splitntrim_marked_dups_sorted.intervals",
+		bam="processing/{reference}/{aligner}/{unit}/{unit}_splitntrim_marked_dups_sorted.bam"
+	output:
+		"processing/{reference}/{aligner}/{unit}/{unit}_realigned_splitntrim_marked_dups_sorted.bam"
+	log:
+		"processing/{reference}/{aligner}/{unit}/gatk_logs/{unit}_realign.log"
+	shell:"""
+	/home/alex.casella/software/java -Xmx10G -Djava.io.tmpdir=/tmp -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T IndelRealigner -R {input.fa} -targetIntervals {input.intervals} -known {config[indel_ref]} -I {input.bam} -o {output} &>{log}
+	"""
+		
+rule get_intervals:
+	input:
+		fa = lambda wildcards: config["references"][wildcards.reference],
+		bam = "processing/{reference}/{aligner}/{unit}/{unit}_splitntrim_marked_dups_sorted.bam"
+	output:
+		"processing/{reference}/{aligner}/{unit}/QC/{unit}_splitntrim_marked_dups_sorted.intervals"
+	log:
+		"processing/{reference}/{aligner}/{unit}/QC/gatk_logs/{unit}_get_intervals.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T RealignerTargetCreator -R {input.fa} -known {config[indel_ref]} -I {input.bam} -o {output} &>{log}
+	"""
+
+rule split_n_trim:
+	input:
+		reference = lambda wildcards: config["references"][wildcards.reference],
+		bam = "processing/{reference}/{aligner}/{unit}/{unit}_marked_dups_sorted.bam"
+	output:
+		"processing/{reference}/{aligner}/{unit}/{unit}_splitntrim_marked_dups_sorted.bam"
+	log:
+		"processing/{reference}/{aligner}/{unit}/gatk_logs/{unit}_splitntrim.log"
+	shell:"""
+	/home/alex.casella/software/java -jar /home/alex.casella/software/GenomeAnalysisTK.jar -T SplitNCigarReads -R {input.reference} -I {input.bam} -o {output} -rf ReassignOneMappingQuality -RMQF 255 -RMQT 60 -U ALLOW_N_CIGAR_READS &> {log}
+	"""
+	
+rule mark_dups:
+	input:
+		bam = "processing/{reference}/{aligner}/{unit}/{unit}_headers_sorted.bam",
+	output:
+		bam="processing/{reference}/{aligner}/{unit}/{unit}_marked_dups_sorted.bam",
+		metrics="processing/{reference}/{aligner}/{unit}/{unit}_marked_dups_metrics.txt"
+	log:
+		"processing/{reference}/{aligner}/{unit}/picard_logs/{unit}_mark_dups.log"
+	shell:"""
+	java -jar /home/alex.casella/software/picard.jar MarkDuplicates I={input.bam} O={output.bam} M={output.metrics} CREATE_INDEX=true &> {log}
+	"""
+
+rule add_header:
+	input:
+		bam = "mapping/{reference}/{aligner}/{unit}/pass_2_output/Aligned.sortedByCoord.out.bam",
+		index = "mapping/{reference}/{aligner}/{unit}/pass_2_output/Aligned.sortedByCoord.out.bam.bai"
+	output:
+		"processing/{reference}/{aligner}/{unit}/{unit}_headers_sorted.bam"
+	log:
+		"processing/{reference}/{aligner}/{unit}/picard_logs/{unit}_add_header.log"
+	shell:"""
+	java -jar /home/alex.casella/software/picard.jar AddOrReplaceReadGroups I={input.bam} O={output} RGID={wildcards.unit} RGLB=1 RGPL=Illumina RGPU=1 RGSM={wildcards.unit} &> {log}
+	"""  

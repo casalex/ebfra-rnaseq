@@ -1,0 +1,9 @@
+rule all:
+	input:
+		expand("processing/{reference}/{aligner}/{unit}/{unit}_preprocessed.bam.bai", reference=config["references"], unit=config["units"],aligner=config["aligner"]),
+		expand("processing/{reference}/{aligner}/{unit}/QC/{unit}_recalibration_plots.pdf", reference=config["references"], unit=config["units"],aligner=config["aligner"])		
+		
+		#expand("mapping/{reference}/{aligner}/{unit}/QC/{unit}_R1_t.fq_fastqc.zip", reference=config["references"], unit=config["units"],aligner=config["aligner"])
+	
+include: "process.rules" 
+include: "map.rules" 
